@@ -28,8 +28,9 @@ def load_imgs(img_dir, image_list_file, label_file):
             for line in imf:
                 
                 space_index = line.find(' ')
+                backslash_index = line.find('/')
                 
-                video_name = line[0:space_index]  # name of video
+                video_name = line[backslash_index+1:space_index]  # name of video
                 img_count = line[space_index+1:]  # number of frames in video
                 
                 video_path = os.path.join(img_dir, video_name)# video_path is the path of each video
@@ -60,7 +61,6 @@ def load_imgs(img_dir, image_list_file, label_file):
 
                 ###  return multi paths in a single video  #####
 
-           
                 #print 'record[0],record[1],record[2]',record[0],record[1],record[2]
                 
     return imgs_first,imgs_second,imgs_third, imgs_forth, imgs_fifth, imgs_sixth

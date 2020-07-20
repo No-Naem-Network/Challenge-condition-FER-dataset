@@ -15,13 +15,18 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 import math
 #from ResNet_MN_Val_all import resnet18, resnet50, resnet101
-from val_part_attention import resnet18, resnet34, resnet50, resnet101
+from part_attention import resnet18, resnet34, resnet50, resnet101
 from val_part_attention_sample import MsCelebDataset, CaffeCrop
 import scipy.io as sio  
 import numpy as np
 import pdb
 import torch._utils
 import numpy as np
+
+from sklearn.metrics import confusion_matrix
+from sklearn.utils.multiclass import unique_labels
+import matplotlib.pyplot as plt
+
 try:
     torch._utils._rebuild_tensor_v2
 except AttributeError:
@@ -73,21 +78,75 @@ parser.add_argument('--end2end', default=True,\
 
 
 
-def get_val_data(list_txt,label_txt,frame_num):
+def get_val_data(img_name, label, frame_num):
+    img_dir_val = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/New_Data/FER2013Test'
+    caffe_crop = CaffeCrop('test')
+    txt_path = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/Data/FER2013Valid/'
+    # val_list_file = txt_path+list_txt
+    # val_label_file = txt_path+label_txt
+    #pdb.set_trace()
+    val_dataset =  MsCelebDataset(img_name, img_dir_val, label,
+                transforms.Compose([caffe_crop,transforms.ToTensor()]))
+    val_loader = torch.utils.data.DataLoader(
+            val_dataset,batch_size=frame_num, shuffle=False,
+    num_workers=args.workers, pin_memory=True)
 
-	caffe_crop = CaffeCrop('test')
-	txt_path = '/media/sdc/kwang/ferplus/pose_test/test_txt/'
-	val_list_file = txt_path+list_txt
-	val_label_file = txt_path+label_txt
-	#pdb.set_trace()
-	val_dataset =  MsCelebDataset(args.img_dir_val, val_list_file, val_label_file, 
-	            transforms.Compose([caffe_crop,transforms.ToTensor()]))
-	val_loader = torch.utils.data.DataLoader(
-	        val_dataset,batch_size=frame_num, shuffle=False,
-	num_workers=args.workers, pin_memory=True)
+    return val_loader
 
-	return val_loader
 
+def plot_confusion_matrix(y_true, y_pred, classes,
+                          normalize=False,
+                          title=None,
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    if not title:
+        if normalize:
+            title = 'Normalized confusion matrix'
+        else:
+            title = 'Confusion matrix, without normalization'
+
+    # Compute confusion matrix
+    cm = confusion_matrix(y_true, y_pred)
+    classes = np.array(classes)
+    # Only use the labels that appear in the data
+    classes = classes[unique_labels(y_true, y_pred)]
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
+    ax.figure.colorbar(im, ax=ax)
+    # We want to show all ticks...
+    ax.set(xticks=np.arange(cm.shape[1]),
+           yticks=np.arange(cm.shape[0]),
+           # ... and label them with the respective list entries
+           xticklabels=classes, yticklabels=classes,
+           title=title,
+           ylabel='True label',
+           xlabel='Predicted label')
+
+    # Rotate the tick labels and set their alignment.
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+             rotation_mode="anchor")
+
+    # Loop over data dimensions and create text annotations.
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, format(cm[i, j], fmt),
+                    ha="center", va="center",
+                    color="white" if cm[i, j] > thresh else "black")
+    fig.tight_layout()
+    return ax
 
 def main(arch,resume):
     global args
@@ -106,43 +165,56 @@ def main(arch,resume):
                 extract_feature=True, end2end=end2end)
 
 
-    model = torch.nn.DataParallel(model).cuda()
+    model = torch.nn.DataParallel(model)
+    # .cuda()
     model.eval()
     assert(os.path.isfile(resume))
     #pdb.set_trace()
-    checkpoint = torch.load(resume)
-    #pdb.set_trace()
-    model.load_state_dict(checkpoint['state_dict'])
+    checkpoint = torch.load(resume, map_location='cpu')
+    print("Model's state_dict:")
+    for param_tensor in model.state_dict():
+        print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+
+
+    pretrained_state_dict = checkpoint['state_dict']
+    model_state_dict = model.state_dict()
+    
+    for key in pretrained_state_dict:
+        if  ((key=='module.fc.weight')|(key=='module.fc.bias')):
+            pass
+        else:    
+            model_state_dict[key] = pretrained_state_dict[key]
+
+    model.load_state_dict(model_state_dict, strict = False)
 
     cudnn.benchmark = True
 
-    val_nn_txt = '/media/sdc/kwang/ferplus/pose_test/val_ferplus_mn.txt'
-    val_nn_files = open(val_nn_txt,'rb')
+    # val_nn_txt = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/val_ferplus_mn.txt'
+    val_nn_txt = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/Data/100_ferplus_val_ngoc_random_crop_list.txt'
+    # Fix read without binary mode
+    # Old code: val_nn_files = open(val_nn_txt,'rb')
+    val_nn_files = open(val_nn_txt,'r')
     correct = 0
     video_num = 0
     output_task1 = open('ferplus_mn_score.txt','w+')
-
+    y_true = []
+    y_pred = []
     for val_nn_file in val_nn_files:
-        
         record = val_nn_file.strip().split()
-        #pdb.set_trace()
-        list_txt = record[0]
-        label_txt = record[1]
-        frame_num = record[2]
-        video_num = video_num +1
-        video_name = list_txt
-        index_xiahua = video_name.find('_')
-        video_name = list(video_name)
-        video_name[index_xiahua] = '/'
-        #pdb.set_trace()
-        video_name = video_name[0:-4]
-        video_name = ''.join(video_name)
-        print 'video_name',video_name
-
-        val_loader = get_val_data(list_txt,label_txt,int(frame_num))
+        space_index = val_nn_file.find(' ')
+        backslash_index = val_nn_file.find('/')
         
+        frame_num = val_nn_file[space_index+1:]
+        video_num = video_num +1
+        video_name = val_nn_file[backslash_index+1:space_index]
+        img_count = val_nn_file[space_index+1:]
+        label = val_nn_file[0]
+        y_true.append(int(label))
+        print('video_name',video_name)
+
+        val_loader = get_val_data(video_name, label, int(frame_num))
         for i,(input,label) in enumerate(val_loader):
-            label = label.numpy()
+            # label = label.numpy()
             input_var = torch.autograd.Variable(input, volatile=True)
             #pdb.set_trace()
             #output, f_need_fix, feature_standard = model(input_var)
@@ -150,31 +222,41 @@ def main(arch,resume):
             output_write = output
             output_write =output_write[0]
             output_write = output_write.cpu().data.numpy()
-            print 'output_write',output_write
+            # print('output_write',output_write)
             #pdb.set_trace()
             output_of_softmax = F.softmax(output,dim=1)
             output_of_softmax_ = output_of_softmax.cpu().data.numpy()
+            # print('output softmax', output_of_softmax_)
             pred_class = np.argmax(output_of_softmax_)
             #output_of_softmax_ = output_of_softmax_[0]
             #output_task1.write(video_name+' '+str(output_of_softmax_[0])+' '+str(output_of_softmax_[1])+' '+str(output_of_softmax_[2])+' '+str(output_of_softmax_[3])+' '+str(output_of_softmax_[4])+' '+str(output_of_softmax_[5])+' '+str(output_of_softmax_[6])+'\n')
             output_task1.write(video_name+' '+str(pred_class)+'\n')
             pred_final = output_of_softmax[0].data.max(0,keepdim=True)[1]
+
             #pdb.set_trace()
             #pred_final = pred_final.cpu().data.numpy()
             pred_final = pred_final.cpu().numpy()
+            print('True label: ',label[0])
+            print('Predict label: ', int(pred_final[0]))
             if int(label[0]) == int(pred_final[0]):
                correct = correct +1
-               print 'predict right label',label[0]
-    print 'accuracy', float(correct)/video_num
-    print 'correct',correct
-    print 'video_num',video_num
+            #    print('predict right label',label[0])
+        y_pred.append(int(pred_final[0]))
+
+    print('accuracy', float(correct)/video_num)
+    print('correct',correct)
+    print('video_num',video_num)
+    plot_confusion_matrix(y_true, y_pred, classes=[0, 1, 2, 3, 4, 5, 6, 7])
+    plt.show()
 
 if __name__ == '__main__':
     
     #infos = [ ('resnet18_naive', './model/checkpoint_6_654.pth.tar'), 
                #]
 	
-    infos = [ ('resnet18_naive', '/media/sdc/kwang/ferplus/pose_test/model_best.pth.tar'), 
+    # infos = [ ('resnet18_naive', '/media/sdc/kwang/ferplus/pose_test/model_best.pth.tar'), 
+    #            ]
+    infos = [ ('resnet18_naive', '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/ijba_res18_naive.pth.tar'), 
                ]
 
 

@@ -11,45 +11,56 @@ from torch.autograd import Variable
 from torch.nn.modules.loss import _WeightedLoss
 import pdb
 
-def load_imgs(img_dir, image_list_file, label_file):
-    imgs_first = list()
-    max_label = 0
-    with open(image_list_file, 'r') as imf:
-        with open(label_file, 'r') as laf:
+def load_imgs(img_name, label, img_dir):
+    img_list = list()
+    img_path = os.path.join(img_dir, img_name.replace('.png', ''))
+
+    img_lists = listdir(img_path)
+    for img_crop_path in img_lists:
+        img_crop_path = os.path.join(img_path, img_crop_path)
+        img_list.append((img_crop_path, label))
+
+    return img_list
+
+# def load_imgs(img_dir, image_list_file, label_file):
+#     imgs_first = list()
+#     max_label = 0
+#     with open(image_list_file, 'r') as imf:
+#         with open(label_file, 'r') as laf:
             
             
-            for line in imf:
+#             for line in imf:
                 
-                space_index = line.find(' ')
-                video_name = line[0:space_index]  # name of video
-                img_count = line[space_index+1:]  # number of frames in video
-                #pdb.set_trace()
-                video_path = os.path.join(img_dir, video_name)# video_path is the path of each video
-                ###  for sampling triple imgs in the single video_path  ####
+#                 space_index = line.find(' ')
+#                 video_name = line[0:space_index]  # name of video
+#                 img_count = line[space_index+1:]  # number of frames in video
+#                 #pdb.set_trace()
+#                 video_path = os.path.join(img_dir, video_name)# video_path is the path of each video
+#                 ###  for sampling triple imgs in the single video_path  ####
                 
-                img_lists = listdir(video_path)
-                record = laf.readline().strip().split()
+#                 img_lists = listdir(video_path)
+#                 record = laf.readline().strip().split()
                 
-                for i in range(len(img_lists)):
-                       img_path_first =    video_path+'/'+img_lists[i]
-                       label = int(record[0])
-                       #pdb.set_trace()
-                       imgs_first.append((img_path_first,label))
+#                 for i in range(len(img_lists)):
+#                        img_path_first =    video_path+'/'+img_lists[i]
+#                        label = int(record[0])
+#                        #pdb.set_trace()
+#                        imgs_first.append((img_path_first,label))
                        
 
                 
 
-                ###  return multi paths in a single video  #####
+#                 ###  return multi paths in a single video  #####
 
            
-                #print 'record[0],record[1],record[2]',record[0],record[1],record[2]
+#                 #print 'record[0],record[1],record[2]',record[0],record[1],record[2]
                 
-    return imgs_first
+#     return imgs_first
 
 
 class MsCelebDataset(data.Dataset):
-    def __init__(self, img_dir, image_list_file, label_file, transform=None):
-        self.imgs_first = load_imgs(img_dir, image_list_file, label_file)
+    def __init__(self,img_name, img_dir, label, transform=None):
+        self.imgs_first = load_imgs(img_name, label, img_dir)
         #pdb.set_trace()
         self.transform = transform
 

@@ -70,29 +70,28 @@ def main():
 
     print('img_dir:', args.img_dir)
     print('end2end?:', args.end2end)
-    args_img_dir='/media/sdb/kwang/dlib_attention_8part_face/train/'
-    #args_img_dir = '/media/sdb/kwang/attention_center_crop_range_part_face/train/'
+    # args_img_dir='/home/oem/project/Face Expression/3. Data/FER_and_FERPLUS/FER2013Train/'
+    args_img_dir = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/New_Data/FER2013Test'
     # load data and prepare dataset
-    train_list_file = 'dlib_ferplus_train_center_crop_range_list.txt'
-    train_label_file = 'dlib_ferplus_train_center_crop_range_label.txt'
-    #train_list_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_train_center_crop_list.txt'
-    #train_label_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_train_center_crop_label.txt'
-    #train_list_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_train_center_crop_range_list.txt'
-    #train_label_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_train_center_crop_range_label.txt'
+    # train_list_file = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/FERplus_dir/dlib_ferplus_train_center_crop_range_list.txt'
+    # train_label_file = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/FERplus_dir/dlib_ferplus_train_center_crop_range_label.txt'
+    train_list_file = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/FERplus_dir/dlib_ferplus_val_center_crop_range_list.txt'
+    train_label_file = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/FERplus_dir/dlib_ferplus_val_center_crop_range_label.txt'
+
     caffe_crop = CaffeCrop('train')
     train_dataset =  MsCelebDataset(args_img_dir, train_list_file, train_label_file, 
             transforms.Compose([caffe_crop,transforms.ToTensor()]))
 
     
-    args_img_dir_val='/media/sdb/kwang/dlib_attention_8part_face/val/'
+    args_img_dir_val='/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/New_Data/FER2013Test'
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
    
     caffe_crop = CaffeCrop('test')
-    val_list_file = 'dlib_ferplus_val_center_crop_range_list.txt'
-    val_label_file = 'dlib_ferplus_val_center_crop_range_label.txt'
+    val_list_file = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/FERplus_dir/dlib_ferplus_val_center_crop_range_list.txt'
+    val_label_file = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/FERplus_dir/dlib_ferplus_val_center_crop_range_label.txt'
     #val_list_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_val_center_crop_list.txt'
     #val_label_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_val_center_crop_label.txt'
     val_dataset =  MsCelebDataset(args_img_dir_val, val_list_file, val_label_file, 
@@ -111,7 +110,7 @@ def main():
     if args.arch == 'resnet18':
         #model = Res()
         model = resnet18(end2end=args.end2end)
-   #     model = resnet18(pretrained=False, nverts=nverts_var,faces=faces_var,shapeMU=shapeMU_var,shapePC=shapePC_var,num_classes=class_num, end2end=args.end2end)
+    #   model = resnet18(pretrained=False, nverts=nverts_var,faces=faces_var,shapeMU=shapeMU_var,shapePC=shapePC_var,num_classes=class_num, end2end=args.end2end)
     if args.arch == 'resnet34':
         model = resnet34(end2end=args.end2end)
     if args.arch == 'resnet101':
@@ -132,12 +131,15 @@ def main():
            
 #    for param_flow in model.module.resnet18_optical_flow.parameters():
 #        param_flow.requires_grad =True
-    model = torch.nn.DataParallel(model).cuda()
+    model = torch.nn.DataParallel(model)
+    # .cuda()
     #model.module.theta.requires_grad = True
     
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
-    criterion1 = attention_rank_loss.MyLoss().cuda()
+    criterion = nn.CrossEntropyLoss()
+    # .cuda()
+    criterion1 = attention_rank_loss.MyLoss()
+    # .cuda()
     #criterion=Cross_Entropy_Sample_Weight.CrossEntropyLoss_weight().cuda()
     optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), args.lr,
                                  momentum=args.momentum,
@@ -150,11 +152,11 @@ def main():
     if args.pretrained:
         
         #checkpoint = torch.load('../../Data/Model/resnet18_ms1m_ferplus_88.pth.tar')
-        checkpoint = torch.load('/home/kwang/AAAI/Emotion18_task1/Data/Model/ijba_res18_naive.pth.tar')
+        checkpoint = torch.load('/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/ijba_res18_naive.pth.tar')
 
         pretrained_state_dict = checkpoint['state_dict']
         model_state_dict = model.state_dict()
-        pdb.set_trace()
+        # pdb.set_trace()
         
         for key in pretrained_state_dict:
             if  ((key=='module.fc.weight')|(key=='module.fc.bias')):
@@ -199,7 +201,8 @@ def main():
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
         
-        best_prec1 = max(prec1.cuda()[0], best_prec1)
+        # best_prec1 = max(prec1.cuda()[0], best_prec1)
+        best_prec1 = max(prec1[0], best_prec1)
         
         save_checkpoint({
             'epoch': epoch + 1,
@@ -244,7 +247,8 @@ def train(train_loader, model, criterion, criterion1, optimizer, epoch):
         target = target_first
          
 
-        target = target.cuda(async=True)
+        target = target
+        # .cuda()
  
         
         input_var = torch.autograd.Variable(input)
@@ -326,7 +330,8 @@ def validate(val_loader, model, criterion, criterion1):
         target = target_first
          
 
-        target = target.cuda(async=True)
+        target = target
+        # .cuda()
  
         
         input_var = torch.autograd.Variable(input)
