@@ -272,6 +272,6 @@ class MyLoss(nn.Module):
         size = alphas_org.shape[0]
         loss_wt = 0.0
         for i in range(size):
-            # loss_wt += max(torch.Tensor([0]).cuda(), 0.03 - (alphas_part_max[i] - alphas_org[i]))
-            loss_wt += max(torch.Tensor([0]), 0.03 - (alphas_part_max[i] - alphas_org[i]))
+            loss_wt += max(torch.Tensor([0]).cuda(), 0.03 - (alphas_part_max[i] - alphas_org[i]))
+            # loss_wt += max(torch.Tensor([0]), 0.03 - (alphas_part_max[i] - alphas_org[i]))
         return  loss_wt/size

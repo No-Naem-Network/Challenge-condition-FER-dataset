@@ -298,7 +298,7 @@ def validate(val_loader, model, criterion, criterion1):
 
     end = time.time()
     for i, (input_first, target_first, input_second,target_second, input_third, target_third, input_forth, target_forth, input_fifth, target_fifth, input_sixth, target_sixth, input_seventh, target_seventh, input_eigth, target_eigth) in enumerate(val_loader):
-        # target = target.cuda(async=True)
+        target = target.cuda(async=True)
         # input_var = torch.autograd.Variable(input, volatile=True)
         # target_var = torch.autograd.Variable(target, volatile=True)
         # compute output

@@ -37,7 +37,7 @@ except AttributeError:
         return tensor
     torch._utils._rebuild_tensor_v2 = _rebuild_tensor_v2
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
@@ -79,9 +79,9 @@ parser.add_argument('--end2end', default=True,\
 
 
 def get_val_data(img_name, label, frame_num):
-    img_dir_val = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/New_Data/FER2013Test'
+    img_dir_val = '/data/ngocnkd/ngocnkd/region-attention-network/New_Data/FER_valid'
     caffe_crop = CaffeCrop('test')
-    txt_path = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/Data/FER2013Valid/'
+    # txt_path = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/Data/FER2013Valid/'
     # val_list_file = txt_path+list_txt
     # val_label_file = txt_path+label_txt
     #pdb.set_trace()
@@ -165,12 +165,15 @@ def main(arch,resume):
                 extract_feature=True, end2end=end2end)
 
 
-    model = torch.nn.DataParallel(model)
-    # .cuda()
+    model = torch.nn.DataParallel(model).cuda()
     model.eval()
     assert(os.path.isfile(resume))
     #pdb.set_trace()
-    checkpoint = torch.load(resume, map_location='cpu')
+
+    checkpoint = torch.load(resume)
+    #pdb.set_trace()
+    # model.load_state_dict(checkpoint['state_dict'])
+    # checkpoint = torch.load(resume, map_location='cpu')
     print("Model's state_dict:")
     for param_tensor in model.state_dict():
         print(param_tensor, "\t", model.state_dict()[param_tensor].size())
@@ -180,9 +183,9 @@ def main(arch,resume):
     model_state_dict = model.state_dict()
     
     for key in pretrained_state_dict:
-        if  ((key=='module.fc.weight')|(key=='module.fc.bias')):
-            pass
-        else:    
+        # if  ((key=='module.fc.weight')|(key=='module.fc.bias')):
+        #     pass
+        # else:    
             model_state_dict[key] = pretrained_state_dict[key]
 
     model.load_state_dict(model_state_dict, strict = False)
@@ -190,7 +193,7 @@ def main(arch,resume):
     cudnn.benchmark = True
 
     # val_nn_txt = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/val_ferplus_mn.txt'
-    val_nn_txt = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/Data/100_ferplus_val_ngoc_random_crop_list.txt'
+    val_nn_txt = '/data/ngocnkd/ngocnkd/region-attention-network/New_Data/FER_valid/label/ferplus_random_crop_val_list.txt'
     # Fix read without binary mode
     # Old code: val_nn_files = open(val_nn_txt,'rb')
     val_nn_files = open(val_nn_txt,'r')
@@ -226,7 +229,7 @@ def main(arch,resume):
             #pdb.set_trace()
             output_of_softmax = F.softmax(output,dim=1)
             output_of_softmax_ = output_of_softmax.cpu().data.numpy()
-            # print('output softmax', output_of_softmax_)
+            print('output softmax', output_of_softmax_)
             pred_class = np.argmax(output_of_softmax_)
             #output_of_softmax_ = output_of_softmax_[0]
             #output_task1.write(video_name+' '+str(output_of_softmax_[0])+' '+str(output_of_softmax_[1])+' '+str(output_of_softmax_[2])+' '+str(output_of_softmax_[3])+' '+str(output_of_softmax_[4])+' '+str(output_of_softmax_[5])+' '+str(output_of_softmax_[6])+'\n')
@@ -247,7 +250,9 @@ def main(arch,resume):
     print('correct',correct)
     print('video_num',video_num)
     plot_confusion_matrix(y_true, y_pred, classes=[0, 1, 2, 3, 4, 5, 6, 7])
+    fig = plt.gcf()
     plt.show()
+    fig.savefig('fig2.png')
 
 if __name__ == '__main__':
     
@@ -256,8 +261,9 @@ if __name__ == '__main__':
 	
     # infos = [ ('resnet18_naive', '/media/sdc/kwang/ferplus/pose_test/model_best.pth.tar'), 
     #            ]
-    infos = [ ('resnet18_naive', '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/ijba_res18_naive.pth.tar'), 
-               ]
+    # infos = [ ('resnet18_naive', '/data/ngocnkd/ngocnkd/region-attention-network/model_dir/checkpoint_200.pth.tar'), ]
+    infos = [ ('resnet18_naive', '/data/ngocnkd/ngocnkd/region-attention-network/pre_trained_model/Resnet18_FER+_pytorch.pth.tar'), ]
+    # infos = [ ('resnet18_naive', '/data/ngocnkd/ngocnkd/region-attention-network/pre_trained_model/Resnet18_MS1M_pytorch.pth.tar'), ]
 
 
     for arch, model_path in infos:

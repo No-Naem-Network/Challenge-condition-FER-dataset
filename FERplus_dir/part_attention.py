@@ -204,6 +204,7 @@ class ResNet(nn.Module):
 
 
         return self_pred_score
+        # return pred_score
 
 
 def resnet18(pretrained=False, **kwargs):
