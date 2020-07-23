@@ -157,8 +157,10 @@ class ResNet(nn.Module):
         vs = []
         alphas = []
         for i in range(6):
-            f = x[:,:,:,:,i]
-
+            # f = x[:,:,:,:,:,:,i]
+            f = x[i,:,:,:]
+            # print(f.shape)
+            f= f.view(1, 3, 224, 224)
             f = self.conv1(f)
             f = self.bn1(f)
             f = self.relu(f)
@@ -202,6 +204,7 @@ class ResNet(nn.Module):
 
 
         return self_pred_score
+        # return pred_score
 
 
 def resnet18(pretrained=False, **kwargs):

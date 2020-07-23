@@ -21,7 +21,12 @@ from part_attention_sample import MsCelebDataset, CaffeCrop
 import scipy.io as sio  
 import numpy as np
 import pdb
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,3,5,6'
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+torch.cuda.empty_cache()
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0,3,5,6'
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
@@ -33,13 +38,13 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18', choices=
                     help='model architecture: ' +
                         ' | '.join(model_names) +
                         ' (default: alexnet)')
-parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=60, type=int, metavar='N',
+parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
+parser.add_argument('-b', '--batch-size', default=64, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
 parser.add_argument('-b_t', '--batch-size_t', default=64, type=int,
                     metavar='N', help='mini-batch size (default: 256)')
@@ -57,7 +62,7 @@ parser.add_argument('--pretrained', default='../../Data/Model/resnet34_ferplus.p
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--model_dir','-m', default='./0_1rank_loss_model', type=str)
+parser.add_argument('--model_dir','-m', default='/data/ngocnkd/ngocnkd/region-attention-network/model_dir/', type=str)
 parser.add_argument('--end2end', default=True,\
         help='if true, using end2end with dream block, else, using naive architecture')
 
@@ -70,29 +75,28 @@ def main():
 
     print('img_dir:', args.img_dir)
     print('end2end?:', args.end2end)
-    args_img_dir='/media/sdb/kwang/dlib_attention_8part_face/train/'
-    #args_img_dir = '/media/sdb/kwang/attention_center_crop_range_part_face/train/'
+    # args_img_dir='/home/oem/project/Face Expression/3. Data/FER_and_FERPLUS/FER2013Train/'
+    args_img_dir = '/data/ngocnkd/ngocnkd/region-attention-network/New_Data/FER_train'
     # load data and prepare dataset
-    train_list_file = 'dlib_ferplus_train_center_crop_range_list.txt'
-    train_label_file = 'dlib_ferplus_train_center_crop_range_label.txt'
-    #train_list_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_train_center_crop_list.txt'
-    #train_label_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_train_center_crop_label.txt'
-    #train_list_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_train_center_crop_range_list.txt'
-    #train_label_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_train_center_crop_range_label.txt'
+    # train_list_file = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/FERplus_dir/dlib_ferplus_train_center_crop_range_list.txt'
+    # train_label_file = '/home/oem/project/Face Expression/5. Challenge-condition-FER-dataset/FERplus_dir/dlib_ferplus_train_center_crop_range_label.txt'
+    train_label_file = '/data/ngocnkd/ngocnkd/region-attention-network/New_Data/ferplus_random_croplabel.txt'
+    train_list_file = '/data/ngocnkd/ngocnkd/region-attention-network/New_Data/ferplus_random_croplist.txt'
+
     caffe_crop = CaffeCrop('train')
     train_dataset =  MsCelebDataset(args_img_dir, train_list_file, train_label_file, 
             transforms.Compose([caffe_crop,transforms.ToTensor()]))
 
     
-    args_img_dir_val='/media/sdb/kwang/dlib_attention_8part_face/val/'
+    args_img_dir_val='/data/ngocnkd/ngocnkd/region-attention-network/New_Data/FER2013Test'
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
    
     caffe_crop = CaffeCrop('test')
-    val_list_file = 'dlib_ferplus_val_center_crop_range_list.txt'
-    val_label_file = 'dlib_ferplus_val_center_crop_range_label.txt'
+    val_label_file = '/data/ngocnkd/ngocnkd/region-attention-network/New_Data/dlib_ferplus_val_center_crop_range_label copy.txt'
+    val_list_file = '/data/ngocnkd/ngocnkd/region-attention-network/New_Data/dlib_ferplus_val_center_crop_range_list copy.txt'
     #val_list_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_val_center_crop_list.txt'
     #val_label_file = '/home/kwang/AAAI/attention_part_of_ferplus/ferplus_8/ferplus_val_center_crop_label.txt'
     val_dataset =  MsCelebDataset(args_img_dir_val, val_list_file, val_label_file, 
@@ -111,7 +115,7 @@ def main():
     if args.arch == 'resnet18':
         #model = Res()
         model = resnet18(end2end=args.end2end)
-   #     model = resnet18(pretrained=False, nverts=nverts_var,faces=faces_var,shapeMU=shapeMU_var,shapePC=shapePC_var,num_classes=class_num, end2end=args.end2end)
+    #   model = resnet18(pretrained=False, nverts=nverts_var,faces=faces_var,shapeMU=shapeMU_var,shapePC=shapePC_var,num_classes=class_num, end2end=args.end2end)
     if args.arch == 'resnet34':
         model = resnet34(end2end=args.end2end)
     if args.arch == 'resnet101':
@@ -122,13 +126,13 @@ def main():
 #        param.requires_grad = False
 
     
-    # for name, p in model.named_parameters():
-    #      if not ( 'fc' in name or 'alpha' in name or 'beta' in name):
+    for name, p in model.named_parameters():
+        if not ( 'fc' in name or 'alpha' in name or 'beta' in name):
              
-    #          p.requires_grad = False
-    #      else:
-    #          print 'updating layer :',name
-    #          print p.requires_grad
+            p.requires_grad = False
+        else:
+            print('updating layer :',name)
+            print(p.requires_grad)
            
 #    for param_flow in model.module.resnet18_optical_flow.parameters():
 #        param_flow.requires_grad =True
@@ -150,11 +154,11 @@ def main():
     if args.pretrained:
         
         #checkpoint = torch.load('../../Data/Model/resnet18_ms1m_ferplus_88.pth.tar')
-        checkpoint = torch.load('/home/kwang/AAAI/Emotion18_task1/Data/Model/ijba_res18_naive.pth.tar')
+        checkpoint = torch.load('/data/ngocnkd/ngocnkd/region-attention-network/pre_trained_model/ijba_res18_naive.pth.tar')
 
         pretrained_state_dict = checkpoint['state_dict']
         model_state_dict = model.state_dict()
-        pdb.set_trace()
+        # pdb.set_trace()
         
         for key in pretrained_state_dict:
             if  ((key=='module.fc.weight')|(key=='module.fc.bias')):
@@ -199,7 +203,9 @@ def main():
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
         
-        best_prec1 = max(prec1.cuda()[0], best_prec1)
+        # best_prec1 = max(prec1.cuda()[0], best_prec1)
+        best_prec1 = max(prec1.cuda(), best_prec1)
+        # best_prec1 = max(prec1[0], best_prec1)
         
         save_checkpoint({
             'epoch': epoch + 1,
@@ -207,7 +213,7 @@ def main():
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
             'optimizer' : optimizer.state_dict(),
-        }, is_best[0])
+        }, is_best)
 
 def train(train_loader, model, criterion, criterion1, optimizer, epoch):
     batch_time = AverageMeter()
@@ -244,7 +250,7 @@ def train(train_loader, model, criterion, criterion1, optimizer, epoch):
         target = target_first
          
 
-        target = target.cuda(async=True)
+        target = target.cuda()
  
         
         input_var = torch.autograd.Variable(input)
@@ -305,7 +311,8 @@ def validate(val_loader, model, criterion, criterion1):
 
     end = time.time()
     for i, (input_first, target_first, input_second,target_second, input_third, target_third, input_forth, target_forth, input_fifth, target_fifth, input_sixth, target_sixth) in enumerate(val_loader):
-        # target = target.cuda(async=True)
+        # target = target.cuda()
+            # async=True)
         # input_var = torch.autograd.Variable(input, volatile=True)
         # target_var = torch.autograd.Variable(target, volatile=True)
         # compute output
@@ -326,7 +333,7 @@ def validate(val_loader, model, criterion, criterion1):
         target = target_first
          
 
-        target = target.cuda(async=True)
+        target = target.cuda()
  
         
         input_var = torch.autograd.Variable(input)
@@ -369,7 +376,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     full_bestname = os.path.join(args.model_dir, 'model_best.pth.tar')
     torch.save(state, full_filename)
     epoch_num = state['epoch']
-    if epoch_num%1==0 and epoch_num>=0:
+    if epoch_num%5==0 and epoch_num>=0:
         torch.save(state, full_filename.replace('checkpoint','checkpoint_'+str(epoch_num)))
     if is_best:
         shutil.copyfile(full_filename, full_bestname)

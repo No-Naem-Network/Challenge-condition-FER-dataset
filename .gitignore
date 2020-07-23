@@ -1,0 +1,5 @@
+Data/
+*.pth
+*.tar
+*.pyc
+New_Data/

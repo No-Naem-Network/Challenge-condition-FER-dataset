@@ -24,12 +24,12 @@ def load_imgs(img_dir, image_list_file, label_file):
     with open(image_list_file, 'r') as imf:
         with open(label_file, 'r') as laf:
             
-            
             for line in imf:
                 
                 space_index = line.find(' ')
+                backslash_index = line.find('/')
                 
-                video_name = line[0:space_index]  # name of video
+                video_name = line[backslash_index+1:space_index]  # name of video
                 img_count = line[space_index+1:]  # number of frames in video
                 
                 video_path = os.path.join(img_dir, video_name)# video_path is the path of each video
@@ -38,13 +38,16 @@ def load_imgs(img_dir, image_list_file, label_file):
                 img_lists = listdir(video_path)
                 # pdb.set_trace()
                 record = laf.readline().strip().split()
-                img_lists.sort()  #  sort files by ascending
-                img_path_first =    video_path+'/'+img_lists[0]
-                img_path_second = video_path + '/'+img_lists[1]
-                img_path_third = video_path + '/'+img_lists[2]
-                img_path_forth = video_path + '/'+img_lists[3]
-                img_path_fifth = video_path + '/' + img_lists[4]
-                img_path_sixth = video_path + '/' + img_lists[5]
+                try:
+                    img_lists.sort()  #  sort files by ascending
+                    img_path_first =    video_path+'/'+img_lists[0]
+                    img_path_second = video_path + '/'+img_lists[1]
+                    img_path_third = video_path + '/'+img_lists[2]
+                    img_path_forth = video_path + '/'+img_lists[3]
+                    img_path_fifth = video_path + '/' + img_lists[4]
+                    img_path_sixth = video_path + '/' + img_lists[5]
+                except Exception:
+                    print(video_name)
                 #img_path_seventh = video_path + '/' + img_lists[6]
                 #img_path_eigth = video_path + '/' + img_lists[7]
                 #pdb.set_trace()
@@ -60,7 +63,6 @@ def load_imgs(img_dir, image_list_file, label_file):
 
                 ###  return multi paths in a single video  #####
 
-           
                 #print 'record[0],record[1],record[2]',record[0],record[1],record[2]
                 
     return imgs_first,imgs_second,imgs_third, imgs_forth, imgs_fifth, imgs_sixth
