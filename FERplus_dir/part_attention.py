@@ -124,7 +124,7 @@ class ResNet(nn.Module):
                                    nn.Sigmoid())
         self.beta = nn.Sequential(nn.Linear(1024, 1),
                                   nn.Sigmoid())
-        self.fc = nn.Linear(512,8)
+        self.fc = nn.Linear(1024,8)
         
         #self.threedmm_layer = threeDMM_model(alfa,threed_model_data)
         for m in self.modules():
@@ -171,17 +171,21 @@ class ResNet(nn.Module):
             f = self.layer3(f)
             f = self.layer4(f)
             f = self.avgpool(f)
-            f = f.squeeze(3).squeeze(2)
+            f = f.squeeze(3)
+            f = f.squeeze(2)
             #MN_MODEL
             vs.append(f)
             alphas.append(self.alpha(f))
         vs_stack = torch.stack(vs, dim=2)
         alphas_stack = torch.stack(alphas, dim=2)
-        vm = vs_stack.mul(alphas_stack).sum(2).div(alphas_stack.sum(2))
+        vm = vs_stack.mul(alphas_stack)
+        vm = vm.sum(2)
+        alphas_stack_sum = alphas_stack.sum(2)
+        vm = vm.div(alphas_stack_sum)
         #vm = vm.view(vm.size(0), -1)
-        self_pred_score = self.fc(vm)
+        # self_pred_score = self.fc(vm)
         #pdb.set_trace()
-        '''for i in range(len(vs)):
+        for i in range(len(vs)):
             vs[i] = torch.cat([vs[i], vm], dim=1)
         vs_stack_4096 = torch.stack(vs, dim=2)
         betas = []
@@ -192,7 +196,9 @@ class ResNet(nn.Module):
         #output = vs_stack_4096.mul(betas_stack).sum(2).div(betas_stack.sum(2))
 		#index_image = torch.max((betas_stack*alphas_stack),1)
         # pdb.set_trace()
-        output = vs_stack_4096.mul(betas_stack*alphas_stack).sum(2).div((betas_stack*alphas_stack).sum(2))
+        output = vs_stack_4096.mul(betas_stack*alphas_stack)
+        output = output.sum(2)
+        output = output.div((betas_stack*alphas_stack).sum(2))
         #output = vs_stack_4096.mul(1.0*alphas_stack).sum(2).div((1.0*alphas_stack).sum(2))
         output = output.view(output.size(0), -1)
 		#max, index = torch.max(betas_stack*alphas_stack)
@@ -203,8 +209,8 @@ class ResNet(nn.Module):
 
 
 
-        return self_pred_score
-        # return pred_score
+        # return self_pred_score
+        return pred_score
 
 
 def resnet18(pretrained=False, **kwargs):
